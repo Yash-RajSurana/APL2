@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🏏 IPL AI Agent Board — Live Kanban</title>
+  <meta name="description" content="Live IPL AI Agent Workflow Board — 4 specialized AI agents doing real-time cricket commentary using Claude Sonnet 4.6" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a14;
+      --surface: #12121e;
+      --surface2: #1a1a2e;
+      --surface3: #22223a;
+      --border: rgba(255,255,255,0.07);
+      --text: #e8e8f0;
+      --text-muted: #7878a0;
+      --accent: #6c63ff;
+      --live-red: #ff4444;
+      --todo-col: #2a2a44;
+      --proc-col: #2a1f0a;
+      --post-col: #0a2a1a;
+      --meme-color: #ff6b9d;
+      --pred-color: #4ecdc4;
+      --stats-color: #45b7d1;
+      --hype-color: #f7b731;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Animated background grid */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(108,99,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(108,99,255,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── HEADER ── */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(10,10,20,0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .match-banner {
+      background: linear-gradient(135deg, #1a0a2e 0%, #0a1a2e 40%, #0a2a1a 100%);
+      border-bottom: 1px solid rgba(108,99,255,0.2);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .live-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,68,68,0.15);
+      border: 1px solid rgba(255,68,68,0.4);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--live-red);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+
+    .live-dot {
+      width: 7px; height: 7px;
+      background: var(--live-red);
+      border-radius: 50%;
+      animation: pulse-red 1.2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-red {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.8); }
+    }
+
+    #match-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 0.3px;
+    }
+
+    #match-score {
+      font-size: 13px;
+      color: #4ecdc4;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #match-event {
+      font-size: 12px;
+      color: var(--text-muted);
+      flex: 1;
+      text-align: right;
+      font-style: italic;
+    }
+
+    .header-bar {
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-icon {
+      font-size: 24px;
+      filter: drop-shadow(0 0 12px rgba(108,99,255,0.8));
+    }
+
+    .logo-text {
+      font-size: 16px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #6c63ff, #ff6b9d, #4ecdc4);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.3px;
+    }
+
+    .logo-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 400;
+      letter-spacing: 0.5px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .refresh-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--text-muted);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 6px 12px;
+    }
+
+    .refresh-dot {
+      width: 6px; height: 6px;
+      background: #4ecdc4;
+      border-radius: 50%;
+      animation: pulse-teal 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-teal {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    #trigger-btn {
+      background: linear-gradient(135deg, #6c63ff, #8b5cf6);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 10px 20px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 20px rgba(108,99,255,0.35);
+      letter-spacing: 0.3px;
+    }
+
+    #trigger-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 28px rgba(108,99,255,0.55);
+    }
+
+    #trigger-btn:active { transform: translateY(0); }
+
+    #trigger-btn.loading {
+      opacity: 0.7;
+      cursor: not-allowed;
+      animation: btn-pulse 0.8s ease-in-out infinite;
+    }
+
+    @keyframes btn-pulse {
+      0%, 100% { box-shadow: 0 4px 20px rgba(108,99,255,0.35); }
+      50% { box-shadow: 0 4px 30px rgba(108,99,255,0.7); }
+    }
+
+    /* ── MAIN KANBAN ── */
+    main {
+      position: relative;
+      z-index: 1;
+      padding: 28px 24px;
+    }
+
+    .board-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .board-title {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--text-muted);
+    }
+
+    #last-updated {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .kanban-board {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    @media (max-width: 900px) {
+      .kanban-board { grid-template-columns: 1fr; }
+    }
+
+    /* ── COLUMNS ── */
+    .column {
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .col-header {
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .col-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .col-count {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    /* TODO column */
+    #col-todo { border-top: 3px solid #555580; }
+    #col-todo .col-header { background: rgba(85,85,128,0.1); }
+    #col-todo .col-title { color: #9090c0; }
+    #col-todo .col-count { background: rgba(85,85,128,0.2); color: #9090c0; }
+
+    /* PROCESSING column */
+    #col-processing { border-top: 3px solid #f59e0b; }
+    #col-processing .col-header { background: rgba(245,158,11,0.08); }
+    #col-processing .col-title { color: #f59e0b; }
+    #col-processing .col-count { background: rgba(245,158,11,0.2); color: #f59e0b; }
+
+    /* POSTED column */
+    #col-posted { border-top: 3px solid #10b981; }
+    #col-posted .col-header { background: rgba(16,185,129,0.08); }
+    #col-posted .col-title { color: #10b981; }
+    #col-posted .col-count { background: rgba(16,185,129,0.2); color: #10b981; }
+
+    .col-body {
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 200px;
+    }
+
+    .col-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 40px 20px;
+      color: var(--text-muted);
+      font-size: 12px;
+      opacity: 0.5;
+    }
+
+    .col-empty-icon { font-size: 28px; }
+
+    /* ── CARDS ── */
+    .card {
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      padding: 14px;
+      animation: card-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+    }
+
+    @keyframes card-in {
+      from { opacity: 0; transform: translateY(16px) scale(0.97); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* Accent stripe */
+    .card::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      border-radius: 12px 0 0 12px;
+    }
+
+    .card[data-agent="MEME"]::before { background: var(--meme-color); }
+    .card[data-agent="PREDICTION"]::before { background: var(--pred-color); }
+    .card[data-agent="STATS"]::before { background: var(--stats-color); }
+    .card[data-agent="HYPE"]::before { background: var(--hype-color); }
+
+    /* Glow on PROCESSING */
+    .card.processing {
+      animation: card-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+                 proc-glow 1.8s ease-in-out infinite;
+    }
+
+    @keyframes proc-glow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0); border-color: rgba(255,255,255,0.07); }
+      50% { box-shadow: 0 0 20px rgba(245,158,11,0.2); border-color: rgba(245,158,11,0.3); }
+    }
+
+    /* Glow on POSTED */
+    .card.posted {
+      border-color: rgba(16,185,129,0.15);
+    }
+
+    .card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      padding-left: 8px;
+    }
+
+    .agent-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+
+    .card[data-agent="MEME"] .agent-label { color: var(--meme-color); }
+    .card[data-agent="PREDICTION"] .agent-label { color: var(--pred-color); }
+    .card[data-agent="STATS"] .agent-label { color: var(--stats-color); }
+    .card[data-agent="HYPE"] .agent-label { color: var(--hype-color); }
+
+    .status-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .badge-todo { background: rgba(85,85,128,0.25); color: #9090c0; }
+    .badge-processing {
+      background: rgba(245,158,11,0.2);
+      color: #f59e0b;
+      animation: badge-pulse 1s ease-in-out infinite;
+    }
+    .badge-posted { background: rgba(16,185,129,0.2); color: #10b981; }
+
+    @keyframes badge-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    .trigger-event {
+      font-size: 11px;
+      color: var(--text-muted);
+      padding: 6px 8px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 6px;
+      margin-bottom: 8px;
+      font-style: italic;
+      line-height: 1.4;
+    }
+
+    /* Spinner for processing */
+    .spinner-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 8px;
+      color: var(--text-muted);
+      font-size: 11px;
+    }
+
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(245,158,11,0.2);
+      border-top-color: #f59e0b;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .generated-content {
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--text);
+      padding: 10px 8px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.05);
+      margin-top: 4px;
+      animation: fade-in 0.5s ease;
+    }
+
+    .meme-image-wrap {
+      margin-top: 8px;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid rgba(255,107,157,0.25);
+      animation: fade-in 0.6s ease;
+    }
+
+    .meme-image {
+      width: 100%;
+      height: auto;
+      display: block;
+      max-height: 220px;
+      object-fit: cover;
+      border-radius: 10px;
+    }
+
+    @keyframes fade-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+      padding-left: 8px;
+    }
+
+    .card-id {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: monospace;
+      opacity: 0.5;
+    }
+
+    .card-time {
+      font-size: 10px;
+      color: var(--text-muted);
+      opacity: 0.6;
+    }
+
+    /* ── STATS BAR ── */
+    .stats-bar {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      padding: 14px 24px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .stat-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .stat-val {
+      font-size: 14px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stat-todo { color: #9090c0; }
+    .stat-processing { color: #f59e0b; }
+    .stat-posted { color: #10b981; }
+
+    .stat-divider {
+      width: 1px; height: 24px;
+      background: var(--border);
+    }
+
+    .venue-tag {
+      margin-left: auto;
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <!-- Match Banner -->
+  <div class="match-banner">
+    <div class="live-badge">
+      <div class="live-dot"></div>
+      LIVE
+    </div>
+    <div id="match-title">Connecting to live match...</div>
+    <div id="match-score"></div>
+    <div id="match-event"></div>
+  </div>
+
+  <!-- Header Bar -->
+  <div class="header-bar">
+    <div class="logo">
+      <div class="logo-icon">🏏</div>
+      <div>
+        <div class="logo-text">IPL AI Agent Board</div>
+        <div class="logo-sub">4 Agents · Live Cricket · Claude Sonnet 4.6</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div class="refresh-indicator">
+        <div class="refresh-dot"></div>
+        <span>Auto-refresh: ON</span>
+      </div>
+      <button id="trigger-btn" onclick="triggerAgents()">🚀 Trigger Agents</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="board-header">
+    <div class="board-title">Agent Workflow Board</div>
+    <div id="last-updated">Last updated: —</div>
+  </div>
+
+  <div class="kanban-board">
+    <!-- TODO -->
+    <div class="column" id="col-todo">
+      <div class="col-header">
+        <div class="col-title">📋 <span>Todo</span></div>
+        <div class="col-count" id="count-todo">0</div>
+      </div>
+      <div class="col-body" id="body-todo">
+        <div class="col-empty">
+          <div class="col-empty-icon">📋</div>
+          <div>No pending tasks</div>
+          <div>Click "Trigger Agents" to start</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROCESSING -->
+    <div class="column" id="col-processing">
+      <div class="col-header">
+        <div class="col-title">⚙️ <span>Processing</span></div>
+        <div class="col-count" id="count-processing">0</div>
+      </div>
+      <div class="col-body" id="body-processing">
+        <div class="col-empty">
+          <div class="col-empty-icon">⚙️</div>
+          <div>No active agents</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- POSTED -->
+    <div class="column" id="col-posted">
+      <div class="col-header">
+        <div class="col-title">✅ <span>Posted</span></div>
+        <div class="col-count" id="count-posted">0</div>
+      </div>
+      <div class="col-body" id="body-posted">
+        <div class="col-empty">
+          <div class="col-empty-icon">✅</div>
+          <div>No completed tasks yet</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Stats bar at bottom -->
+<div class="stats-bar">
+  <div class="stat-item">
+    <div class="stat-label">Todo</div>
+    <div class="stat-val stat-todo" id="stat-todo">0</div>
+  </div>
+  <div class="stat-divider"></div>
+  <div class="stat-item">
+    <div class="stat-label">Processing</div>
+    <div class="stat-val stat-processing" id="stat-proc">0</div>
+  </div>
+  <div class="stat-divider"></div>
+  <div class="stat-item">
+    <div class="stat-label">Posted</div>
+    <div class="stat-val stat-posted" id="stat-posted">0</div>
+  </div>
+  <div class="stat-divider"></div>
+  <div class="stat-item">
+    <div class="stat-label">Total</div>
+    <div class="stat-val" id="stat-total" style="color:#6c63ff">0</div>
+  </div>
+  <div class="venue-tag">
+    📍 <span id="stat-venue">—</span>
+  </div>
+</div>
+
+<script>
+  const AGENT_META = {
+    MEME:       { emoji: '🎭', color: '#ff6b9d' },
+    PREDICTION: { emoji: '📊', color: '#4ecdc4' },
+    STATS:      { emoji: '📈', color: '#45b7d1' },
+    HYPE:       { emoji: '🔥', color: '#f7b731' },
+  };
+
+  function formatTime(isoStr) {
+    if (!isoStr) return '—';
+    const d = new Date(isoStr);
+    return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  function buildCard(task) {
+    const meta = AGENT_META[task.agentType] || { emoji: '🤖', color: '#888' };
+    const status = task.status;
+    const statusClass = status === 'TODO' ? 'todo' : status === 'PROCESSING' ? 'processing' : 'posted';
+    const badgeClass = 'badge-' + statusClass;
+    const isMeme = task.agentType === 'MEME';
+
+    let contentHtml = '';
+    if (status === 'PROCESSING') {
+      const spinMsg = isMeme
+        ? '🎨 Gemini Imagen is painting your meme…'
+        : 'Gemini is generating content…';
+      contentHtml = `<div class="spinner-wrap"><div class="spinner"></div><span>${spinMsg}</span></div>`;
+    } else if (status === 'POSTED') {
+      if (isMeme && task.imageBase64) {
+        // Show AI-generated meme image
+        contentHtml = `<div class="meme-image-wrap">
+          <img src="data:image/png;base64,${task.imageBase64}" alt="AI Cricket Meme" class="meme-image" />
+        </div>`;
+      } else if (task.generatedContent) {
+        contentHtml = `<div class="generated-content">${escapeHtml(task.generatedContent)}</div>`;
+      }
+    }
+
+    return `
+      <div class="card ${statusClass}" data-agent="${task.agentType}" data-id="${task.id}">
+        <div class="card-top">
+          <div class="agent-label">${meta.emoji} ${task.agentType.charAt(0) + task.agentType.slice(1).toLowerCase()} Agent</div>
+          <div class="status-badge ${badgeClass}">${status}</div>
+        </div>
+        <div class="trigger-event">"${escapeHtml(task.triggerEvent || '')}"</div>
+        ${contentHtml}
+        <div class="card-footer">
+          <div class="card-id">#${task.id}</div>
+          <div class="card-time">${formatTime(task.updatedAt)}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function renderColumn(bodyId, countId, tasks, emptyIcon, emptyMsg, emptySubMsg) {
+    const body = document.getElementById(bodyId);
+    const count = document.getElementById(countId);
+    count.textContent = tasks.length;
+
+    if (tasks.length === 0) {
+      body.innerHTML = `<div class="col-empty">
+        <div class="col-empty-icon">${emptyIcon}</div>
+        <div>${emptyMsg}</div>
+        ${emptySubMsg ? `<div>${emptySubMsg}</div>` : ''}
+      </div>`;
+    } else {
+      body.innerHTML = tasks.map(buildCard).join('');
+    }
+  }
+
+  function renderKanban(todo, processing, posted) {
+    // Newest first in POSTED column
+    const postedNewestFirst = [...posted].reverse();
+    renderColumn('body-todo', 'count-todo', todo, '📋', 'No pending tasks', 'Click "Trigger Agents" to start');
+    renderColumn('body-processing', 'count-processing', processing, '⚙️', 'No active agents', '');
+    renderColumn('body-posted', 'count-posted', postedNewestFirst, '✅', 'No completed tasks yet', '');
+
+    // Stats bar
+    document.getElementById('stat-todo').textContent = todo.length;
+    document.getElementById('stat-proc').textContent = processing.length;
+    document.getElementById('stat-posted').textContent = posted.length;
+    document.getElementById('stat-total').textContent = todo.length + processing.length + posted.length;
+  }
+
+  function updateMatchBanner(match) {
+    if (!match) return;
+    document.getElementById('match-title').textContent = match.matchTitle || '—';
+    document.getElementById('match-score').textContent = match.currentScore || '';
+    document.getElementById('match-event').textContent = '⚡ ' + (match.recentEvent || '');
+    document.getElementById('stat-venue').textContent = match.venue || '—';
+  }
+
+  async function fetchAndRender() {
+    try {
+      const [tasksRes, matchRes] = await Promise.all([
+        fetch('/api/tasks'),
+        fetch('/api/match')
+      ]);
+
+      if (!tasksRes.ok || !matchRes.ok) throw new Error('API error');
+
+      const tasks = await tasksRes.json();
+      const match = await matchRes.json();
+
+      updateMatchBanner(match);
+      renderKanban(tasks.TODO || [], tasks.PROCESSING || [], tasks.POSTED || []);
+      document.getElementById('last-updated').textContent =
+        'Last updated: ' + new Date().toLocaleTimeString('en-IN');
+    } catch (err) {
+      console.warn('Fetch error:', err);
+    }
+  }
+
+  async function triggerAgents() {
+    const btn = document.getElementById('trigger-btn');
+    btn.classList.add('loading');
+    btn.textContent = '⏳ Triggering...';
+    btn.disabled = true;
+
+    try {
+      await fetch('/api/trigger', { method: 'POST' });
+      await new Promise(r => setTimeout(r, 1500));
+      await fetchAndRender();
+    } catch(e) {
+      console.error(e);
+    } finally {
+      btn.classList.remove('loading');
+      btn.textContent = '🚀 Trigger Agents';
+      btn.disabled = false;
+    }
+  }
+
+  // Poll every 3 seconds for smooth card transitions
+  setInterval(fetchAndRender, 3000);
+  // Immediate on load
+  fetchAndRender();
+</script>
+</body>
+</html>
