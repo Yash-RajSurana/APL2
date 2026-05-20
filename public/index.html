@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🏏 IPL AI Agent Board — Live Kanban</title>
+  <meta name="description" content="Live IPL AI Agent Workflow Board — 4 specialized AI agents doing real-time cricket commentary using Gemini" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0a14; --surface: #12121e; --surface2: #1a1a2e; --surface3: #22223a;
+      --border: rgba(255,255,255,0.07); --text: #e8e8f0; --text-muted: #7878a0;
+      --accent: #6c63ff; --live-red: #ff4444;
+      --meme-color: #ff6b9d; --pred-color: #4ecdc4; --stats-color: #45b7d1; --hype-color: #f7b731;
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+    body::before { content: ''; position: fixed; inset: 0; background-image: linear-gradient(rgba(108,99,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(108,99,255,0.03) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; z-index: 0; }
+
+    header { position: sticky; top: 0; z-index: 100; background: rgba(10,10,20,0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); }
+    .match-banner { background: linear-gradient(135deg, #1a0a2e 0%, #0a1a2e 40%, #0a2a1a 100%); border-bottom: 1px solid rgba(108,99,255,0.2); padding: 12px 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .live-badge { display: flex; align-items: center; gap: 6px; background: rgba(255,68,68,0.15); border: 1px solid rgba(255,68,68,0.4); border-radius: 20px; padding: 4px 12px; font-size: 11px; font-weight: 700; color: var(--live-red); letter-spacing: 1px; text-transform: uppercase; flex-shrink: 0; }
+    .live-dot { width: 7px; height: 7px; background: var(--live-red); border-radius: 50%; animation: pulse-red 1.2s ease-in-out infinite; }
+    @keyframes pulse-red { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.8); } }
+    #match-title { font-size: 15px; font-weight: 700; color: #fff; letter-spacing: 0.3px; }
+    #match-score { font-size: 13px; color: #4ecdc4; font-weight: 600; font-variant-numeric: tabular-nums; }
+    #match-event { font-size: 12px; color: var(--text-muted); flex: 1; text-align: right; font-style: italic; }
+
+    .header-bar { padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .logo { display: flex; align-items: center; gap: 10px; }
+    .logo-icon { font-size: 24px; filter: drop-shadow(0 0 12px rgba(108,99,255,0.8)); }
+    .logo-text { font-size: 16px; font-weight: 800; background: linear-gradient(135deg, #6c63ff, #ff6b9d, #4ecdc4); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; letter-spacing: -0.3px; }
+    .logo-sub { font-size: 11px; color: var(--text-muted); font-weight: 400; letter-spacing: 0.5px; }
+    .header-actions { display: flex; align-items: center; gap: 12px; }
+    .refresh-indicator { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 6px 12px; }
+    .refresh-dot { width: 6px; height: 6px; background: #4ecdc4; border-radius: 50%; animation: pulse-teal 2s ease-in-out infinite; }
+    @keyframes pulse-teal { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+    #trigger-btn { background: linear-gradient(135deg, #6c63ff, #8b5cf6); border: none; border-radius: 10px; color: #fff; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 700; padding: 10px 20px; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 4px 20px rgba(108,99,255,0.35); letter-spacing: 0.3px; }
+    #trigger-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 28px rgba(108,99,255,0.55); }
+    #trigger-btn:active { transform: translateY(0); }
+    #trigger-btn.loading { opacity: 0.7; cursor: not-allowed; }
+
+    main { position: relative; z-index: 1; padding: 28px 24px; }
+    .board-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .board-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); }
+    #last-updated { font-size: 11px; color: var(--text-muted); }
+
+    .kanban-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; align-items: start; }
+    @media (max-width: 900px) { .kanban-board { grid-template-columns: 1fr; } }
+
+    .column { border-radius: 16px; overflow: hidden; border: 1px solid var(--border); background: var(--surface); }
+    .col-header { padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; }
+    .col-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+    .col-count { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
+
+    #col-todo { border-top: 3px solid #555580; }
+    #col-todo .col-header { background: rgba(85,85,128,0.1); }
+    #col-todo .col-title { color: #9090c0; }
+    #col-todo .col-count { background: rgba(85,85,128,0.2); color: #9090c0; }
+    #col-processing { border-top: 3px solid #f59e0b; }
+    #col-processing .col-header { background: rgba(245,158,11,0.08); }
+    #col-processing .col-title { color: #f59e0b; }
+    #col-processing .col-count { background: rgba(245,158,11,0.2); color: #f59e0b; }
+    #col-posted { border-top: 3px solid #10b981; }
+    #col-posted .col-header { background: rgba(16,185,129,0.08); }
+    #col-posted .col-title { color: #10b981; }
+    #col-posted .col-count { background: rgba(16,185,129,0.2); color: #10b981; }
+
+    .col-body { padding: 12px; display: flex; flex-direction: column; gap: 10px; min-height: 200px; }
+    .col-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 40px 20px; color: var(--text-muted); font-size: 12px; opacity: 0.5; }
+    .col-empty-icon { font-size: 28px; }
+
+    .card { border-radius: 12px; border: 1px solid var(--border); background: var(--surface2); padding: 14px; animation: card-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); transition: transform 0.2s ease, box-shadow 0.2s ease; position: relative; overflow: hidden; }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.4); }
+    @keyframes card-in { from { opacity: 0; transform: translateY(16px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    .card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; border-radius: 12px 0 0 12px; }
+    .card[data-agent="MEME"]::before { background: var(--meme-color); }
+    .card[data-agent="PREDICTION"]::before { background: var(--pred-color); }
+    .card[data-agent="STATS"]::before { background: var(--stats-color); }
+    .card[data-agent="HYPE"]::before { background: var(--hype-color); }
+    .card.processing { animation: card-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), proc-glow 1.8s ease-in-out infinite; }
+    @keyframes proc-glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0); border-color: rgba(255,255,255,0.07); } 50% { box-shadow: 0 0 20px rgba(245,158,11,0.2); border-color: rgba(245,158,11,0.3); } }
+    .card.posted { border-color: rgba(16,185,129,0.15); }
+
+    .card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; padding-left: 8px; }
+    .agent-label { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.3px; }
+    .card[data-agent="MEME"] .agent-label { color: var(--meme-color); }
+    .card[data-agent="PREDICTION"] .agent-label { color: var(--pred-color); }
+    .card[data-agent="STATS"] .agent-label { color: var(--stats-color); }
+    .card[data-agent="HYPE"] .agent-label { color: var(--hype-color); }
+
+    .status-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.8px; }
+    .badge-todo { background: rgba(85,85,128,0.25); color: #9090c0; }
+    .badge-processing { background: rgba(245,158,11,0.2); color: #f59e0b; animation: badge-pulse 1s ease-in-out infinite; }
+    .badge-posted { background: rgba(16,185,129,0.2); color: #10b981; }
+    @keyframes badge-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+    .trigger-event { font-size: 11px; color: var(--text-muted); padding: 6px 8px; background: rgba(255,255,255,0.03); border-radius: 6px; margin-bottom: 8px; font-style: italic; line-height: 1.4; }
+    .spinner-wrap { display: flex; align-items: center; gap: 8px; padding: 10px 8px; color: var(--text-muted); font-size: 11px; }
+    .spinner { width: 16px; height: 16px; border: 2px solid rgba(245,158,11,0.2); border-top-color: #f59e0b; border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .generated-content { font-size: 13px; line-height: 1.55; color: var(--text); padding: 10px 8px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); margin-top: 4px; animation: fade-in 0.5s ease; }
+    @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+    .card-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-left: 8px; }
+    .card-id { font-size: 10px; color: var(--text-muted); font-family: monospace; opacity: 0.5; }
+    .card-time { font-size: 10px; color: var(--text-muted); opacity: 0.6; }
+
+    .stats-bar { display: flex; align-items: center; gap: 24px; padding: 14px 24px; background: var(--surface); border-top: 1px solid var(--border); flex-wrap: wrap; }
+    .stat-item { display: flex; align-items: center; gap: 8px; }
+    .stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; }
+    .stat-val { font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .stat-todo { color: #9090c0; } .stat-processing { color: #f59e0b; } .stat-posted { color: #10b981; }
+    .stat-divider { width: 1px; height: 24px; background: var(--border); }
+    .venue-tag { margin-left: auto; font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 5px; }
+    ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 3px; }
+  </style>
+</head>
+<body>
+<header>
+  <div class="match-banner">
+    <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+    <div id="match-title">Loading match...</div>
+    <div id="match-score"></div>
+    <div id="match-event"></div>
+  </div>
+  <div class="header-bar">
+    <div class="logo">
+      <div class="logo-icon">🏏</div>
+      <div>
+        <div class="logo-text">IPL AI Agent Board</div>
+        <div class="logo-sub">4 Agents · Live Cricket · Gemini 2.0 Flash</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div class="refresh-indicator"><div class="refresh-dot"></div><span>Auto-refresh: ON</span></div>
+      <button id="trigger-btn" onclick="triggerAgents()">🚀 Trigger Agents</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="board-header">
+    <div class="board-title">Agent Workflow Board</div>
+    <div id="last-updated">Last updated: —</div>
+  </div>
+  <div class="kanban-board">
+    <div class="column" id="col-todo">
+      <div class="col-header"><div class="col-title">📋 <span>Todo</span></div><div class="col-count" id="count-todo">0</div></div>
+      <div class="col-body" id="body-todo"><div class="col-empty"><div class="col-empty-icon">📋</div><div>No pending tasks</div><div>Click "Trigger Agents" to start</div></div></div>
+    </div>
+    <div class="column" id="col-processing">
+      <div class="col-header"><div class="col-title">⚙️ <span>Processing</span></div><div class="col-count" id="count-processing">0</div></div>
+      <div class="col-body" id="body-processing"><div class="col-empty"><div class="col-empty-icon">⚙️</div><div>No active agents</div></div></div>
+    </div>
+    <div class="column" id="col-posted">
+      <div class="col-header"><div class="col-title">✅ <span>Posted</span></div><div class="col-count" id="count-posted">0</div></div>
+      <div class="col-body" id="body-posted"><div class="col-empty"><div class="col-empty-icon">✅</div><div>No completed tasks yet</div></div></div>
+    </div>
+  </div>
+</main>
+
+<div class="stats-bar">
+  <div class="stat-item"><div class="stat-label">Todo</div><div class="stat-val stat-todo" id="stat-todo">0</div></div>
+  <div class="stat-divider"></div>
+  <div class="stat-item"><div class="stat-label">Processing</div><div class="stat-val stat-processing" id="stat-proc">0</div></div>
+  <div class="stat-divider"></div>
+  <div class="stat-item"><div class="stat-label">Posted</div><div class="stat-val stat-posted" id="stat-posted">0</div></div>
+  <div class="stat-divider"></div>
+  <div class="stat-item"><div class="stat-label">Total</div><div class="stat-val" id="stat-total" style="color:#6c63ff">0</div></div>
+  <div class="venue-tag">📍 <span id="stat-venue">Wankhede Stadium, Mumbai</span></div>
+</div>
+
+<script>
+// ═══════════════ CONFIG ═══════════════
+const GEMINI_API_KEY = 'AIzaSyBOZzhd9ZZfmAHndvVaLxpgH_FeIYMufCA';
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+
+// ═══════════════ MOCK CRICKET DATA ═══════════════
+const EVENTS = [
+  "SIX! MS Dhoni smashes one over long-on!",
+  "FOUR! Rohit Sharma cuts it through the covers",
+  "WICKET! Virat Kohli caught at slip for 67",
+  "50 UP for Shubman Gill! Half-century in 34 balls",
+  "MAIDEN OVER by Bumrah! Pressure building!",
+  "Wide ball! Free hit coming up!",
+  "DRS Review! Original decision stands - OUT!",
+  "100 Partnership between the two batters!",
+  "SIX! Hardik Pandya goes downtown!",
+  "WICKET! Bowled him! Middle stump cartwheels!",
+  "FOUR! Elegant cover drive from Iyer",
+  "50 UP for Jadeja! Counter-attack at its best!"
+];
+
+const MATCHES = [
+  { title: "Mumbai Indians vs Chennai Super Kings", batting: "Mumbai Indians", bowling: "Chennai Super Kings" },
+  { title: "Royal Challengers vs Gujarat Titans", batting: "Royal Challengers", bowling: "Gujarat Titans" },
+  { title: "Kolkata Knight Riders vs Rajasthan Royals", batting: "Kolkata Knight Riders", bowling: "Rajasthan Royals" },
+];
+
+const SCORES = ["127/3 (14.2 ov)", "89/2 (10.0 ov)", "156/5 (17.3 ov)", "45/1 (5.4 ov)", "178/6 (18.1 ov)"];
+
+let eventIdx = 0;
+let matchIdx = 0;
+let taskCounter = 0;
+
+function getMatch() {
+  const m = MATCHES[matchIdx % MATCHES.length];
+  return {
+    matchTitle: m.title, battingTeam: m.batting, bowlingTeam: m.bowling,
+    currentScore: SCORES[eventIdx % SCORES.length],
+    recentEvent: EVENTS[eventIdx % EVENTS.length],
+    venue: "Wankhede Stadium, Mumbai"
+  };
+}
+
+function rotateEvent() {
+  eventIdx = (eventIdx + 1) % EVENTS.length;
+  if (eventIdx === 0) matchIdx = (matchIdx + 1) % MATCHES.length;
+}
+
+// ═══════════════ AGENT TYPES ═══════════════
+const AGENTS = ['MEME', 'PREDICTION', 'STATS', 'HYPE'];
+const AGENT_META = {
+  MEME:       { emoji: '🎭', color: '#ff6b9d' },
+  PREDICTION: { emoji: '📊', color: '#4ecdc4' },
+  STATS:      { emoji: '📈', color: '#45b7d1' },
+  HYPE:       { emoji: '🔥', color: '#f7b731' },
+};
+
+// ═══════════════ TASK STATE ═══════════════
+let allTasks = [];
+const MAX_TASKS = 20;
+let isProcessing = false;
+
+// ═══════════════ GEMINI API ═══════════════
+async function callGemini(prompt) {
+  try {
+    const res = await fetch(GEMINI_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    });
+    if (!res.ok) throw new Error(`${res.status}`);
+    const data = await res.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
+  } catch (e) {
+    console.warn('Gemini error:', e.message);
+    return null;
+  }
+}
+
+function buildPrompt(agent, match) {
+  const info = `Match: ${match.matchTitle} | Score: ${match.currentScore} | Event: ${match.recentEvent} | Batting: ${match.battingTeam} | Bowling: ${match.bowlingTeam}`;
+  switch (agent) {
+    case 'MEME': return `You are a hilarious IPL cricket meme creator. Event: ${info}\n\nWrite ONE short funny meme text (2-3 lines max) with emojis. Make it viral-worthy, relatable for Indian cricket fans. Just output the meme text, nothing else.`;
+    case 'PREDICTION': return `You are a bold IPL prediction analyst. Event: ${info}\n\nGive ONE confident prediction with win probability percentage. Format: [Team] Win Probability: XX% | Prediction: [bold call]. Output only the prediction, 2 lines max.`;
+    case 'STATS': return `You are an IPL stats expert. Event: ${info}\n\nGive a brief (2-3 sentence) stats insight with numbers and historical context. Output only the insight.`;
+    case 'HYPE': return `You are an ultra-hyped IPL fan. Event: ${info}\n\nWrite ONE energetic fan post — pure hype, caps for emphasis, emojis, cricket slang. Max 2 lines. Output only the post.`;
+  }
+}
+
+// ═══════════════ FALLBACK CONTENT ═══════════════
+function getFallback(agent, event) {
+  if (agent === 'MEME') {
+    if (event.includes('SIX')) return "🚀 That ball is STILL travelling!! The bowler's ego left the stadium too 😭🔥 #MassiveMax";
+    if (event.includes('WICKET') || event.includes('OUT')) return "😂 Batter walked back like he meant to do that all along 💀🏏 \"Tactical retirement\" they call it 😭";
+    if (event.includes('FOUR')) return "😤 Fielder dove, ball laughed, crowd roared 🏏💨 BOUNDARY hits different at this score!";
+    if (event.includes('MAIDEN')) return "🥶 Bowler sent a maiden like he had a flight to catch 😤 Dot. Dot. Dot. Dot. Dot. Dot. ICE COLD.";
+    if (event.includes('50') || event.includes('100')) return "🎉 FIFTY UP! Bat raise so casual, like he parks cars for a living 😂🏏 Absolute class!";
+    if (event.includes('DRS')) return "📺 3 mins of tension for the umpire to say \"yeah I was right\" 😭🫡";
+    if (event.includes('Wide') || event.includes('Free hit')) return "🎁 FREE HIT! Bowler handed out gifts like it's Diwali 🪔😂";
+    return "😂 Cricket: the only sport where 50,000 people hold their breath for a dot ball 🏏🤣";
+  }
+  if (agent === 'PREDICTION') return `📊 ${getMatch().battingTeam} Win Probability: 64% | After "${event}" the momentum shifts. Key phase coming up.`;
+  if (agent === 'STATS') return `📈 "${event}" — Historical T20 data shows teams in this position win 61% when they maintain this run rate through the middle overs.`;
+  if (agent === 'HYPE') {
+    const team = getMatch().battingTeam.split(' ')[0].toUpperCase();
+    if (event.includes('SIX')) return `🔥🔥 MAXIMUMMMM!! ${team} IS ON FIRE!! CROWD IS LOSING THEIR MINDS!! 💪🏏 #IPL2026`;
+    if (event.includes('FOUR')) return `⚡ FOUR!! ${team} DOMINATING!! PURE CRICKET GOLD!! 🏏🔥🔥`;
+    return `🏏 LET'S GOOO ${team}!! THIS IS OUR MATCH!! THE ENERGY IS UNREAL!! 💪🔥🔥 #IPL2026`;
+  }
+}
+
+// ═══════════════ ORCHESTRATOR ═══════════════
+async function triggerAgents() {
+  if (isProcessing) return;
+  isProcessing = true;
+  const btn = document.getElementById('trigger-btn');
+  btn.classList.add('loading');
+  btn.textContent = '⏳ Running...';
+
+  const match = getMatch();
+  updateMatchBanner(match);
+
+  const tasks = AGENTS.map(agent => ({
+    id: String(++taskCounter).padStart(3, '0'),
+    agentType: agent,
+    status: 'TODO',
+    triggerEvent: match.recentEvent,
+    generatedContent: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }));
+
+  // Add to global task list (cap at MAX_TASKS)
+  allTasks.push(...tasks);
+  if (allTasks.length > MAX_TASKS) allTasks = allTasks.slice(-MAX_TASKS);
+  renderBoard();
+
+  // Process each agent with stagger
+  const promises = tasks.map((task, idx) => processAgent(task, idx, match));
+  await Promise.all(promises);
+
+  rotateEvent();
+  btn.classList.remove('loading');
+  btn.textContent = '🚀 Trigger Agents';
+  isProcessing = false;
+}
+
+async function processAgent(task, idx, match) {
+  // Stagger TODO appearance
+  await sleep(idx * 600);
+  renderBoard();
+
+  // Move to PROCESSING
+  await sleep(2000);
+  task.status = 'PROCESSING';
+  task.updatedAt = new Date().toISOString();
+  renderBoard();
+
+  // Call Gemini (with 5s min visible processing time)
+  const [content] = await Promise.all([
+    callGemini(buildPrompt(task.agentType, match)),
+    sleep(5000)
+  ]);
+
+  task.generatedContent = content || getFallback(task.agentType, match.recentEvent);
+  task.status = 'POSTED';
+  task.updatedAt = new Date().toISOString();
+  renderBoard();
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ═══════════════ AUTO-TRIGGER ═══════════════
+setInterval(() => {
+  if (!isProcessing) triggerAgents();
+}, 60000);
+
+// ═══════════════ RENDERING ═══════════════
+function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function formatTime(iso) { if (!iso) return '—'; return new Date(iso).toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+
+function buildCard(task) {
+  const meta = AGENT_META[task.agentType] || { emoji: '🤖', color: '#888' };
+  const status = task.status;
+  const sc = status === 'TODO' ? 'todo' : status === 'PROCESSING' ? 'processing' : 'posted';
+
+  let content = '';
+  if (status === 'PROCESSING') {
+    content = `<div class="spinner-wrap"><div class="spinner"></div><span>Gemini is generating content…</span></div>`;
+  } else if (status === 'POSTED' && task.generatedContent) {
+    content = `<div class="generated-content">${escapeHtml(task.generatedContent)}</div>`;
+  }
+
+  return `<div class="card ${sc}" data-agent="${task.agentType}">
+    <div class="card-top">
+      <div class="agent-label">${meta.emoji} ${task.agentType.charAt(0) + task.agentType.slice(1).toLowerCase()} Agent</div>
+      <div class="status-badge badge-${sc}">${status}</div>
+    </div>
+    <div class="trigger-event">"${escapeHtml(task.triggerEvent)}"</div>
+    ${content}
+    <div class="card-footer">
+      <div class="card-id">#${task.id}</div>
+      <div class="card-time">${formatTime(task.updatedAt)}</div>
+    </div>
+  </div>`;
+}
+
+function renderBoard() {
+  const todo = allTasks.filter(t => t.status === 'TODO');
+  const proc = allTasks.filter(t => t.status === 'PROCESSING');
+  const posted = [...allTasks.filter(t => t.status === 'POSTED')].reverse();
+
+  renderCol('body-todo', 'count-todo', todo, '📋', 'No pending tasks', 'Click "Trigger Agents" to start');
+  renderCol('body-processing', 'count-processing', proc, '⚙️', 'No active agents', '');
+  renderCol('body-posted', 'count-posted', posted, '✅', 'No completed tasks yet', '');
+
+  document.getElementById('stat-todo').textContent = todo.length;
+  document.getElementById('stat-proc').textContent = proc.length;
+  document.getElementById('stat-posted').textContent = posted.length;
+  document.getElementById('stat-total').textContent = allTasks.length;
+  document.getElementById('last-updated').textContent = 'Last updated: ' + new Date().toLocaleTimeString('en-IN');
+}
+
+function renderCol(bodyId, countId, tasks, icon, msg, sub) {
+  document.getElementById(countId).textContent = tasks.length;
+  const el = document.getElementById(bodyId);
+  if (!tasks.length) {
+    el.innerHTML = `<div class="col-empty"><div class="col-empty-icon">${icon}</div><div>${msg}</div>${sub ? `<div>${sub}</div>` : ''}</div>`;
+  } else {
+    el.innerHTML = tasks.map(buildCard).join('');
+  }
+}
+
+function updateMatchBanner(m) {
+  document.getElementById('match-title').textContent = m.matchTitle;
+  document.getElementById('match-score').textContent = m.currentScore;
+  document.getElementById('match-event').textContent = '⚡ ' + m.recentEvent;
+  document.getElementById('stat-venue').textContent = m.venue;
+}
+
+// Init
+updateMatchBanner(getMatch());
+</script>
+</body>
+</html>
