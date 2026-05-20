@@ -175,7 +175,11 @@
 
 <script>
 // ═══════════════ CONFIG ═══════════════
-const GEMINI_API_KEY = 'AIzaSyBOZzhd9ZZfmAHndvVaLxpgH_FeIYMufCA';
+let GEMINI_API_KEY = localStorage.getItem('GEMINI_API_KEY');
+if (!GEMINI_API_KEY) {
+  GEMINI_API_KEY = prompt("🔑 Private App: Enter your Gemini API Key to enable the AI:");
+  if (GEMINI_API_KEY) localStorage.setItem('GEMINI_API_KEY', GEMINI_API_KEY);
+}
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
 
 // ═══════════════ MOCK CRICKET DATA ═══════════════
@@ -338,6 +342,15 @@ async function processAgent(task, idx, match) {
   ]);
 
   task.generatedContent = content || getFallback(task.agentType, match.recentEvent);
+  
+  // 🎨 NEW: Free Image Generation using Pollinations.ai!
+  if (task.agentType === 'MEME') {
+    // We use the generated content (or fallback) to create an image prompt
+    const imagePrompt = `Funny cricket cartoon, Indian fans, highly detailed, expressive: ${task.generatedContent}`;
+    // Construct Pollinations URL (URL encoded prompt)
+    task.imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?width=512&height=512&nologo=true&seed=${Math.floor(Math.random() * 100000)}`;
+  }
+
   task.status = 'POSTED';
   task.updatedAt = new Date().toISOString();
   renderBoard();
@@ -362,8 +375,17 @@ function buildCard(task) {
   let content = '';
   if (status === 'PROCESSING') {
     content = `<div class="spinner-wrap"><div class="spinner"></div><span>Gemini is generating content…</span></div>`;
-  } else if (status === 'POSTED' && task.generatedContent) {
-    content = `<div class="generated-content">${escapeHtml(task.generatedContent)}</div>`;
+  } else if (status === 'POSTED') {
+    // If we have an image URL (from Pollinations), display it!
+    if (task.imageUrl) {
+      content = `<div class="meme-image-wrap" style="margin-top: 8px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,107,157,0.3);">
+        <img src="${task.imageUrl}" alt="AI Meme" style="width: 100%; height: auto; display: block;" loading="lazy" />
+      </div>`;
+    } 
+    // Always show the text content
+    if (task.generatedContent) {
+      content += `<div class="generated-content">${escapeHtml(task.generatedContent)}</div>`;
+    }
   }
 
   return `<div class="card ${sc}" data-agent="${task.agentType}">
